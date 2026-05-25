@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/twoleft_basic_tests.dir/link.d CMakeFiles/twoleft_basic_tests.dir/tests/basic_tests.cpp.o -o twoleft_basic_tests

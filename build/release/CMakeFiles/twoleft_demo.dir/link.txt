@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/twoleft_demo.dir/link.d CMakeFiles/twoleft_demo.dir/examples/demo.cpp.o -o twoleft_demo

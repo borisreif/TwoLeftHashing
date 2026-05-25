@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/twoleft_benchmark_int.dir/link.d CMakeFiles/twoleft_benchmark_int.dir/benchmarks/benchmark_int.cpp.o -o twoleft_benchmark_int

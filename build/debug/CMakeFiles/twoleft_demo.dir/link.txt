@@ -1,1 +1,0 @@
-/usr/bin/c++ -g -Wl,--dependency-file=CMakeFiles/twoleft_demo.dir/link.d CMakeFiles/twoleft_demo.dir/examples/demo.cpp.o -o twoleft_demo
