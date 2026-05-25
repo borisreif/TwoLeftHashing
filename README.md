@@ -69,3 +69,36 @@ The benchmark compares insertion and successful lookup against
 performance claim. For serious benchmarking, use multiple repetitions, pin the
 CPU, disable turbo/frequency scaling where possible, and consider Google
 Benchmark or nanobench.
+
+## VS Code on Ubuntu
+
+Recommended packages:
+
+```bash
+sudo apt update
+sudo apt install build-essential cmake gdb gnuplot
+```
+
+Recommended VS Code extensions are listed in `.vscode/extensions.json`:
+
+- C/C++ (`ms-vscode.cpptools`)
+- CMake Tools (`ms-vscode.cmake-tools`)
+- CMake syntax highlighting (`twxs.cmake`)
+
+Useful tasks:
+
+```text
+Terminal -> Run Task... -> CMake: build debug
+Terminal -> Run Task... -> Run demo
+Terminal -> Run Task... -> Run tests
+Terminal -> Run Task... -> Run benchmark release
+Terminal -> Run Task... -> Plot benchmark with gnuplot
+```
+
+Debugger launch configurations:
+
+```text
+Run and Debug -> Debug demo
+Run and Debug -> Debug tests
+Run and Debug -> Debug benchmark
+```

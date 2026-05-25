@@ -1,0 +1,89 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "CMake: configure debug",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "-S", "${workspaceFolder}",
+        "-B", "${workspaceFolder}/build/debug",
+        "-DCMAKE_BUILD_TYPE=Debug",
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "CMake: build debug",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build", "${workspaceFolder}/build/debug",
+        "-j"
+      ],
+      "dependsOn": "CMake: configure debug",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "CMake: configure release",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "-S", "${workspaceFolder}",
+        "-B", "${workspaceFolder}/build/release",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "CMake: build release",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build", "${workspaceFolder}/build/release",
+        "-j"
+      ],
+      "dependsOn": "CMake: configure release",
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "Run demo",
+      "type": "shell",
+      "command": "${workspaceFolder}/build/debug/twoleft_demo",
+      "dependsOn": "CMake: build debug",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run tests",
+      "type": "shell",
+      "command": "${workspaceFolder}/build/debug/twoleft_basic_tests",
+      "dependsOn": "CMake: build debug",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run benchmark release",
+      "type": "shell",
+      "command": "${workspaceFolder}/build/release/twoleft_benchmark_int",
+      "args": [
+        "${workspaceFolder}/benchmarks/results.csv"
+      ],
+      "dependsOn": "CMake: build release",
+      "problemMatcher": []
+    },
+    {
+      "label": "Plot benchmark with gnuplot",
+      "type": "shell",
+      "command": "gnuplot",
+      "args": [
+        "${workspaceFolder}/benchmarks/plot_results.gnuplot"
+      ],
+      "dependsOn": "Run benchmark release",
+      "problemMatcher": []
+    }
+  ]
+}
