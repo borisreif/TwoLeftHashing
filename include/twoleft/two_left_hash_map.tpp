@@ -1,5 +1,28 @@
 #pragma once
 
+/**
+ * @file two_left_hash_map.tpp
+ * @brief Template definitions for the dynamic 2-left hash-map wrapper.
+ *
+ * The wrapper is intentionally policy-oriented. Most member functions simply
+ * forward to the fixed table, but insertion and rebuild are different: they
+ * decide when one fixed table image should be replaced by another.
+ *
+ * Rebuild flow:
+ *
+ * @code{.text}
+ * current table
+ *     |
+ *     |  for each entry
+ *     v
+ * fresh fixed table with fresh seeds
+ *     |
+ *     |  if all entries fit and stash pressure is acceptable
+ *     v
+ * move-assign fresh table into wrapper
+ * @endcode
+ */
+
 namespace twoleft {
 
 template <class Key, class Value, std::size_t BucketSlots, class Hash, class Equal>
@@ -24,7 +47,11 @@ template <class Key, class Value, std::size_t BucketSlots, class Hash, class Equ
 bool TwoLeftHashMap<Key, Value, BucketSlots, Hash, Equal>::insert(Key key, Value value) {
     value_type entry{std::move(key), std::move(value)};
 
+    // Insertion may need more than one attempt: a fixed table can report
+    // "full", after which the wrapper rebuilds and retries the same entry.
     for (;;) {
+        // Load-factor growth is checked before insertion so the fixed table is
+        // normally not pushed too close to its physical capacity.
         if (should_grow_before_insert()) {
             rebuild(table_.bucket_count() * 2, RebuildGoal::normal);
         }
@@ -47,6 +74,8 @@ bool TwoLeftHashMap<Key, Value, BucketSlots, Hash, Equal>::insert(Key key, Value
                 return false;
 
             case InsertStatus::full:
+                // The fixed table could not even use the stash. Grow, then
+                // loop and try the same key/value pair again.
                 rebuild(table_.bucket_count() * 2, RebuildGoal::normal);
                 break;
         }
@@ -213,6 +242,9 @@ void TwoLeftHashMap<Key, Value, BucketSlots, Hash, Equal>::rebuild(
 ) {
     desired_bucket_count = ceil_power_of_two(desired_bucket_count);
 
+    // Rebuilding is transactional: the current table is not modified while the
+    // fresh table is being constructed. If an attempt fails, we simply discard
+    // the candidate and try again with new seeds or a larger size.
     for (;;) {
         constexpr int attempts_per_size = 4;
 
@@ -232,11 +264,15 @@ void TwoLeftHashMap<Key, Value, BucketSlots, Hash, Equal>::rebuild(
             });
 
             if (ok && satisfies_rebuild_goal(fresh, goal)) {
+                // Only now do we replace the live table. This preserves the old
+                // table if constructing the candidate throws or placement fails.
                 table_ = std::move(fresh);
                 return;
             }
         }
 
+        // Several independent seed pairs were not enough at this size. Treat it
+        // as a capacity problem and grow.
         desired_bucket_count *= 2;
     }
 }

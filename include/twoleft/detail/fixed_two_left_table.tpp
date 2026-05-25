@@ -1,5 +1,24 @@
 #pragma once
 
+/**
+ * @file fixed_two_left_table.tpp
+ * @brief Template definitions for the fixed-capacity 2-left table.
+ *
+ * This file contains the actual placement mechanics. The most important invariant
+ * is compact bucket occupancy: if a bucket has load `L`, then slots
+ * `[0, L)` are live and slots `[L, BucketSlots)` are raw/unconstructed.
+ *
+ * Compact occupancy makes erase simple and avoids tombstones:
+ *
+ * @code{.text}
+ * before erase at index 1, load = 4:
+ *   [ A ][ B ][ C ][ D ]
+ *
+ * move last into erased position, destroy old last, load = 3:
+ *   [ A ][ D ][ C ][ raw ]
+ * @endcode
+ */
+
 namespace twoleft::detail {
 
 template <class Key, class Value, std::size_t BucketSlots, class Hash, class Equal>
@@ -42,6 +61,8 @@ template <class Key, class Value, std::size_t BucketSlots, class Hash, class Equ
 InsertStatus FixedTwoLeftTable<Key, Value, BucketSlots, Hash, Equal>::try_insert(
     const value_type& entry
 ) {
+    // Duplicates are not allowed. We check both candidate buckets and the stash
+    // before attempting to construct a new value.
     if (find(entry.first) != nullptr) {
         return InsertStatus::already_present;
     }
@@ -50,6 +71,14 @@ InsertStatus FixedTwoLeftTable<Key, Value, BucketSlots, Hash, Equal>::try_insert
     const auto b2 = bucket2(entry.first);
 
     // 2-left choice: choose the less-loaded candidate bucket; ties go left.
+    //
+    //          h1(key) -> table 1 bucket b1
+    // key --->
+    //          h2(key) -> table 2 bucket b2
+    //
+    // Insert into the candidate with lower load. If the chosen candidate is full,
+    // the other candidate must be at least as full under this rule, so we use the
+    // stash as the fallback.
     if (load1_[b1] <= load2_[b2]) {
         if (load1_[b1] < BucketSlots) {
             construct_in_bucket(0, b1, load1_[b1], entry);
@@ -99,6 +128,8 @@ bool FixedTwoLeftTable<Key, Value, BucketSlots, Hash, Equal>::contains(const Key
 
 template <class Key, class Value, std::size_t BucketSlots, class Hash, class Equal>
 bool FixedTwoLeftTable<Key, Value, BucketSlots, Hash, Equal>::erase(const Key& key) {
+    // Only two main buckets can legally contain this key. If one of them loses
+    // an entry, a previously stashed entry might now fit in its legal position.
     const auto b1 = bucket1(key);
     if (erase_from_bucket(0, b1, key)) {
         promote_from_stash_while_possible();
@@ -205,6 +236,8 @@ std::uint64_t FixedTwoLeftTable<Key, Value, BucketSlots, Hash, Equal>::hash_with
     const Key& key,
     std::uint64_t seed
 ) const {
+    // The user hash is combined with one seed and then mixed so the low bits are
+    // useful for power-of-two masking.
     return mix64(static_cast<std::uint64_t>(hash_(key)) ^ seed);
 }
 
@@ -294,6 +327,8 @@ template <class Key, class Value, std::size_t BucketSlots, class Hash, class Equ
 auto FixedTwoLeftTable<Key, Value, BucketSlots, Hash, Equal>::find_entry(
     const Key& key
 ) -> value_type* {
+    // Lookup is bounded: scan the occupied prefix of the first candidate bucket,
+    // then the occupied prefix of the second candidate bucket, then the stash.
     const auto b1 = bucket1(key);
     for (std::size_t i = 0; i < load1_[b1]; ++i) {
         auto* entry = bucket_slot(0, b1, i);
@@ -343,6 +378,8 @@ bool FixedTwoLeftTable<Key, Value, BucketSlots, Hash, Equal>::erase_from_bucket(
 
         const auto last = static_cast<std::size_t>(load - 1);
         if (i != last) {
+            // Preserve compact occupancy by moving the last live slot into the
+            // erased position. This changes iteration order but avoids tombstones.
             auto* last_ptr = bucket_slot(table, bucket, last);
             *current = std::move(*last_ptr);
             std::destroy_at(last_ptr);
@@ -378,6 +415,9 @@ bool FixedTwoLeftTable<Key, Value, BucketSlots, Hash, Equal>::erase_from_stash(
 
 template <class Key, class Value, std::size_t BucketSlots, class Hash, class Equal>
 void FixedTwoLeftTable<Key, Value, BucketSlots, Hash, Equal>::promote_from_stash_while_possible() {
+    // The stash is an overflow area, not a preferred location. After erasing from
+    // a main bucket, repeatedly move stash entries back into legal main-table
+    // positions whenever possible.
     while (try_promote_one_from_stash()) {
         // Keep promoting until no stashed item fits in either of its two buckets.
     }
